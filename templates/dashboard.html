@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header"
+    style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+    <h1>{{ t('Dashboard Statistics') }}</h1>
+    <div style="display:flex; gap:10px;" class="print-hidden">
+        <button class="btn btn-secondary" onclick="window.print()">{{ t('Print') }}</button>
+        <a href="{{ url_for('main.tickets_list') }}" class="btn btn-secondary">{{ t('Tickets List') }}</a>
+        <a href="{{ url_for('main.new_ticket') }}" class="btn btn-primary">{{ t('Create Ticket') }}</a>
+    </div>
+</div>
+
+<style>
+    @media print {
+
+        .navbar,
+        .btn,
+        form,
+        .print-hidden {
+            display: none !important;
+        }
+
+        body {
+            background-color: white !important;
+            color: black !important;
+        }
+
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ccc !important;
+            break-inside: avoid;
+            background-color: white !important;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            color: black !important;
+        }
+
+        .dashboard-header {
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+    }
+</style>
+
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <div class="card" style="text-align: center; padding: 20px;">
+        <h3 style="color: var(--text-muted);">{{ t('Total Tickets') }}</h3>
+        <p style="font-size: 2.5rem; font-weight: bold; margin: 10px 0; color: var(--primary-color);">{{ total_tickets
+            }}</p>
+    </div>
+    <div class="card" style="text-align: center; padding: 20px;">
+        <h3 style="color: var(--text-muted);">{{ t('Active Tickets') }}</h3>
+        <p style="font-size: 2.5rem; font-weight: bold; margin: 10px 0; color: #d6ec0c;">{{ active_tickets_count }}</p>
+    </div>
+    <div class="card" style="text-align: center; padding: 20px;">
+        <h3 style="color: var(--text-muted);">{{ t('Closed Tickets') }}</h3>
+        <p style="font-size: 2.5rem; font-weight: bold; margin: 10px 0; color: #1eff00;">{{ closed_tickets_count }}</p>
+    </div>
+    {% if current_user.role == 'IT' %}
+    <div class="card" style="text-align: center; padding: 20px;">
+        <h3 style="color: var(--text-muted);">{{ t('Archived Tickets') }}</h3>
+        <p style="font-size: 2.5rem; font-weight: bold; margin: 10px 0; color: #6c757d;">{{ archived_tickets_count }}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <div class="card" style="padding: 20px;">
+        <h3 class="mb-4" style="text-align: center;">{{ t('Tickets by Status') }}</h3>
+        <div style="position: relative; height: 300px; width: 100%; display: flex; justify-content: center;">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <h3 class="mb-4" style="text-align: center;">{{ t('Tickets by Category') }}</h3>
+        <div style="position: relative; height: 300px; width: 100%; display: flex; justify-content: center;">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+    {% if current_user.role == 'IT' %}
+    <div class="card" style="padding: 20px;">
+        <h3 class="mb-4" style="text-align: center;">{{ t('Tickets by Assignee') }}</h3>
+        <div style="position: relative; height: 300px; width: 100%; display: flex; justify-content: center;">
+            <canvas id="assigneeChart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Prepare Data
+    const statusData = {{ status_counts | tojson }};
+    const statusColorsMap = {{ status_colors | tojson }};
+    const categoryData = {{ category_counts | tojson }};
+    {% if current_user.role == 'IT' %}
+    const assigneeData = {{ assignee_counts | tojson }};
+    {% endif %}
+
+    // Color Generators
+    const colors = [
+        '#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+        '#6610f2', '#e83e8c', '#fd7e14', '#20c997', '#6c757d'
+    ];
+
+    // Render Status Chart (Pie)
+    const ctxStatus = document.getElementById('statusChart').getContext('2d');
+    const statusLabels = Object.keys(statusData);
+    const statusBgColors = statusLabels.map(label => statusColorsMap[label] || '#6c757d');
+
+    new Chart(ctxStatus, {
+        type: 'doughnut',
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: Object.values(statusData),
+                backgroundColor: statusBgColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+
+    // Render Category Chart (Bar)
+    const ctxCategory = document.getElementById('categoryChart').getContext('2d');
+    new Chart(ctxCategory, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(categoryData),
+            datasets: [{
+                // label: "{{ t('Tickets Count') }}",
+                data: Object.values(categoryData),
+                backgroundColor: colors,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Render Assignee Chart
+    {% if current_user.role == 'IT' %}
+    const ctxAssignee = document.getElementById('assigneeChart').getContext('2d');
+    new Chart(ctxAssignee, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(assigneeData),
+            datasets: [{
+                data: Object.values(assigneeData),
+                backgroundColor: colors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+    {% endif %}
+</script>
+
+{% if show_dashboard_popup %}
+<div id="dashboardPopupModal" class="modal" style="z-index: 2000;">
+    <div class="modal-content" style="max-width: 500px; text-align: center; border-radius: 8px;">
+        <span class="close-btn" onclick="closePopupModal()">&times;</span>
+        <h2 class="mb-4" style="color: var(--primary-color);">{{ t('System Announcement') }}</h2>
+        <div style="font-size: 1.1rem; line-height: 1.6; white-space: pre-wrap; margin-bottom: 20px;">{% if current_lang == 'ar' %}{{ dashboard_popup_message_ar }}{% else %}{{ dashboard_popup_message_en }}{% endif %}</div>
+        <button class="btn btn-primary" onclick="closePopupModal()">{{ t('Close') }}</button>
+    </div>
+</div>
+
+<script>
+    function closePopupModal() {
+        document.getElementById('dashboardPopupModal').style.display = 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('dashboardPopupModal').style.display = 'block';
+    });
+</script>
+{% endif %}
+
+{% endblock %}

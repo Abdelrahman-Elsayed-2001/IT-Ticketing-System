@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>{{ t('Contact Us') }}</h1>
+</div>
+
+<div class="card mb-4" style="max-width: 800px; margin: 0 auto; text-align: center; padding: 2rem;">
+    <h2 class="mb-3">{{ t('Hotlines') }}</h2>
+    <div style="display: center; justify-content: center; gap: 2rem; flex-wrap: wrap; font-size: 1.1rem;">
+        {% if admin %}
+        {% if admin.avaya_extension %}
+        <div><strong>{{ t('Avaya Extension') }}:</strong> {{ admin.avaya_extension }}</div>
+        {% endif %}
+        {% if admin.email %}
+        <div><strong>{{ t('General Email') }}:</strong> <a href="mailto:{{ admin.email }}">{{ admin.email }}</a></div>
+        {% endif %}
+        {% if admin.mobile_number and admin.mobile_number != '2001' %}
+        <div><strong>{{ t('WhatsApp') }}:</strong> <a href="https://wa.me/{{ admin.mobile_number }}"
+                style="color: #25D366; text-decoration: none;">{{ admin.mobile_number }}</a></div>
+        {% endif %}
+        {% else %}
+        <p>Admin data not configured.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="max-width: 1000px; margin: 5% auto;">
+    <h2 class="mb-4">{{ t('IT Staff') }}</h2>
+    <div class="table-responsive">
+        <table class="simple-table" style="width: 100%; text-align: left;">
+            <thead>
+                <tr>
+                    <th>{{ t('Name') }}</th>
+                    <th>{{ t('Email') }}</th>
+                    <th>{{ t('Avaya Extension') }}</th>
+                    <th>{{ t('Personal Mobile') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in it_users %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('main.contact_it_user', username=u.username) }}"
+                            style="text-decoration:none; font-weight:bold; color:var(--primary-color);">
+                            {{ u.display_name }}
+                        </a>
+                    </td>
+                    <td>{{ u.email or '-' }}</td>
+                    <td>{{ u.avaya_extension or '-' }}</td>
+                    <td>
+                        {% if u.is_mobile_public and u.mobile_number and u.mobile_number != '2001' %}
+                        {{ u.mobile_number }}
+                        {% else %}
+                        <span class="text-muted" style="font-size: 0.8rem; opacity: 0.7;">Hidden</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

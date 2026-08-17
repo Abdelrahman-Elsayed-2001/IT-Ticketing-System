@@ -1,0 +1,407 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header mb-4">
+    <h1>{{ t('Chat') }}</h1>
+</div>
+
+<style>
+    .chat-layout {
+        display: flex;
+        height: 70vh;
+        gap: 20px;
+    }
+
+    .chat-sidebar {
+        width: 300px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-sidebar-header {
+        padding: 15px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .chat-sidebar-header h3 {
+        margin: 0;
+    }
+
+    .search-box {
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 5px 10px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-color);
+        color: var(--text-color);
+    }
+
+    .chat-users {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .user-item {
+        padding: 15px;
+        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .user-item:hover,
+    .user-item.active {
+        background: var(--hover-color, #2fd2d8);
+    }
+
+    .dark-theme .user-item:hover,
+    .dark-theme .user-item.active {
+        background: #333;
+    }
+
+    .unread-badge {
+        background: var(--danger-color, #dc3545);
+        color: white;
+        border-radius: 50%;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    .chat-main {
+        flex: 1;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-header {
+        padding: 15px;
+        border-bottom: 1px solid var(--border-color);
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .chat-messages {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .message {
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        position: relative;
+        word-wrap: break-word;
+    }
+
+    .message.me {
+        align-self: flex-end;
+        background: var(--primary-color);
+        color: white;
+        border-bottom-right-radius: 2px;
+    }
+
+    .message.other {
+        align-self: flex-start;
+        background: #e9ecef;
+        color: black;
+        border-bottom-left-radius: 2px;
+    }
+
+    .dark-theme .message.other {
+        background: #444;
+        color: white;
+    }
+
+    .message-time {
+        font-size: 0.7rem;
+        opacity: 0.7;
+        display: block;
+        text-align: right;
+        margin-top: 5px;
+    }
+
+    .chat-input {
+        padding: 15px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        gap: 10px;
+    }
+
+    .chat-input textarea {
+        flex: 1;
+        resize: none;
+        height: 50px;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .msg-highlight {
+        background-color: yellow;
+        color: black;
+    }
+</style>
+
+<div class="chat-layout">
+    <div class="chat-sidebar">
+        <div class="chat-sidebar-header">
+            <h3>{{ t('Chats') }}</h3>
+            <button class="btn btn-sm btn-primary" onclick="openNewChatModal()">{{ t('New Chat') }}</button>
+        </div>
+        <div class="search-box">
+            <input type="text" id="userSearch" placeholder="{{ t('Search users...') }}" onkeyup="filterUsers()">
+        </div>
+        <div class="chat-users" id="chatUsersList">
+            {% for u in chat_users %}
+            <div class="user-item {% if u.id == selected_user_id %}active{% endif %}" data-search="{{ u.display_name|lower }} {% if u.arabic_display_name %}{{ u.arabic_display_name|lower }}{% endif %} {{ u.username|lower }}" onclick="selectUser({{ u.id }}, '{{ u.display_name }}', this)">
+                <div>
+                    <strong>{{ u.display_name }}</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-color); opacity: 0.8;">{{ t(u.role) }}</div>
+                </div>
+                {% if unread_counts.get(u.id, 0) > 0 %}
+                <span class="unread-badge" id="unread-badge-{{ u.id }}">{{ unread_counts[u.id] }}</span>
+                {% endif %}
+            </div>
+            {% else %}
+            <div style="padding: 15px; text-align: center; color: var(--text-muted);">
+                {{ t('No previous chats') }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="chat-main" id="chatMain" style="{% if not selected_user_id %}display: none;{% endif %}">
+        <div class="chat-header">
+            <span id="chatHeaderName">Select a user to start chatting</span>
+            <div class="search-box" style="padding: 0; border: none; width: 200px;">
+                <input type="text" id="msgSearch" placeholder="{{ t('Search messages...') }}"
+                    onkeyup="filterMessages()">
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages load here -->
+        </div>
+        <div class="chat-input">
+            <textarea class="form-control" id="messageInput" placeholder="{{ t('Type a message...') }}"
+                onkeydown="handleEnter(event)"></textarea>
+            <button class="btn btn-primary" onclick="sendMessage()">{{ t('Send') }}</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div id="newChatModal" class="modal" style="z-index: 2000;">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close-btn" onclick="closeNewChatModal()">&times;</span>
+        <h2 class="mb-4">{{ t('New Chat') }}</h2>
+        <div class="search-box mb-3" style="padding:0; border:none;">
+            <input type="text" id="newChatSearch" placeholder="{{ t('Search users...') }}"
+                onkeyup="filterNewChatUsers()">
+        </div>
+        <div style="max-height: 300px; overflow-y: auto;" id="newChatUsersList">
+            {% for u in other_users %}
+            <div class="user-item" data-search="{{ u.display_name|lower }} {% if u.arabic_display_name %}{{ u.arabic_display_name|lower }}{% endif %} {{ u.username|lower }}"
+                onclick="startNewChat({{ u.id }}, '{{ u.display_name }}')">
+                <div>
+                    <strong>{{ u.display_name }}</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-color); opacity: 0.8;">{{ t(u.role) }}</div>
+                </div>
+            </div>
+            {% else %}
+            <p>{{ t('No other users available') }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentUserId = {{ selected_user_id or 'null' }};
+    let refreshInterval = null;
+    let loadedMessages = [];
+
+    function filterUsers() {
+        const term = document.getElementById('userSearch').value.toLowerCase();
+        const items = document.querySelectorAll('#chatUsersList .user-item');
+        items.forEach(item => {
+            const name = item.getAttribute('data-search');
+            if (name.includes(term)) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+    }
+
+    function filterNewChatUsers() {
+        const term = document.getElementById('newChatSearch').value.toLowerCase();
+        const items = document.querySelectorAll('#newChatUsersList .user-item');
+        items.forEach(item => {
+            const name = item.getAttribute('data-search');
+            if (name.includes(term)) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+    }
+
+    function filterMessages() {
+        const term = document.getElementById('msgSearch').value.toLowerCase();
+        renderMessages(loadedMessages, term);
+    }
+
+    function openNewChatModal() {
+        document.getElementById('newChatModal').style.display = 'block';
+    }
+
+    function closeNewChatModal() {
+        document.getElementById('newChatModal').style.display = 'none';
+    }
+
+    function startNewChat(userId, userName) {
+        closeNewChatModal();
+        // Redirect to chat with this user so they are moved to active chats list
+        window.location.href = `{{ url_for('main.chat') }}?user_id=${userId}`;
+    }
+
+    function selectUser(userId, userName, element) {
+        currentUserId = userId;
+        document.querySelectorAll('#chatUsersList .user-item').forEach(el => el.classList.remove('active'));
+        if (element) {
+            element.classList.add('active');
+            const badge = document.getElementById(`unread-badge-${userId}`);
+            if (badge) badge.style.display = 'none';
+        } else {
+            const activeUserEl = document.querySelector(`.user-item[onclick*="selectUser(${userId}"]`);
+            if (activeUserEl) activeUserEl.classList.add('active');
+        }
+
+        document.getElementById('chatMain').style.display = 'flex';
+        document.getElementById('chatHeaderName').innerText = userName;
+        document.getElementById('msgSearch').value = '';
+
+        loadMessages();
+
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(loadMessages, 5000);
+    }
+
+    function renderMessages(messages, highlightTerm = '') {
+        const container = document.getElementById('chatMessages');
+        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+
+        container.innerHTML = '';
+        messages.forEach(msg => {
+            let text = msg.message;
+            if (highlightTerm) {
+                // simple search highlight
+                const regex = new RegExp(`(${highlightTerm})`, 'gi');
+                if (!text.toLowerCase().includes(highlightTerm)) return; // skip if doesn't match
+                text = text.replace(regex, '<span class="msg-highlight">$1</span>');
+            }
+            text = text.replace(/\n/g, '<br>');
+
+            const div = document.createElement('div');
+            div.className = `message ${msg.is_me ? 'me' : 'other'}`;
+            div.innerHTML = `
+                ${text}
+                <span class="message-time">${msg.created_at}</span>
+            `;
+            container.appendChild(div);
+        });
+
+        if (isAtBottom || highlightTerm) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    function loadMessages() {
+        if (!currentUserId) return;
+
+        fetch(`/api/chat/messages/${currentUserId}`)
+            .then(res => res.json())
+            .then(data => {
+                loadedMessages = data;
+                const term = document.getElementById('msgSearch').value.toLowerCase();
+                renderMessages(loadedMessages, term);
+            });
+    }
+
+    function sendMessage() {
+        if (!currentUserId) return;
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        const formData = new FormData();
+        formData.append('receiver_id', currentUserId);
+        formData.append('message', text);
+
+        input.disabled = true;
+
+        fetch('/api/chat/send', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    input.value = '';
+                    loadMessages();
+                }
+            })
+            .finally(() => {
+                input.disabled = false;
+                input.focus();
+            });
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (currentUserId) {
+            const activeUserEl = document.querySelector(`.user-item[onclick*="selectUser(${currentUserId}"]`);
+            if (activeUserEl) {
+                const userName = activeUserEl.querySelector('strong').innerText;
+                document.getElementById('chatMain').style.display = 'flex';
+                document.getElementById('chatHeaderName').innerText = userName;
+
+                const badge = document.getElementById(`unread-badge-${currentUserId}`);
+                if (badge) badge.style.display = 'none';
+
+                loadMessages();
+                refreshInterval = setInterval(loadMessages, 5000);
+            }
+        }
+    });
+</script>
+{% endblock %}

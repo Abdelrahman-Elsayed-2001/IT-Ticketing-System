@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <a href="{{ url_for('main.contact_us') }}" class="btn btn-secondary">&larr; {{ t('Back') }}</a>
+        <h1 style="margin: 0;">{{ t('Profile') }}: {{ it_user.display_name }}</h1>
+    </div>
+</div>
+
+<div class="card" style="max-width: 60%; margin: 0 auto; text-align: center; padding: 3rem 2rem;">
+    <div
+        style="width: 120px; height: 120px; background: var(--primary-color); border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 3.5rem; margin: 0 auto 1.5rem auto;">
+        {{ it_user.display_name[0] | upper }}
+    </div>
+    <h2 style="margin-bottom: 0.5rem;">{{ it_user.display_name }}</h2>
+    <span class="badge badge-it mb-4" style="font-size: 1rem; padding: 0.5rem 1rem;">{{ t(it_user.role) }}</span>
+
+    <div
+        style="text-align: {{ 'right' if current_lang == 'ar' else 'left' }}; background: var(--bg-color); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 1rem;">
+
+        <div class="mb-3"
+            style="font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            <span style="font-weight: bold; color: var(--text-muted);">{{ t('Avaya Extension') }}</span>
+            <span style="text-align: {{ 'left' if current_lang == 'ar' else 'right' }};">{{
+                it_user.avaya_extension or
+                '-' }}</span>
+        </div>
+        <div class="mb-3"
+            style="font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            <span style="font-weight: bold; color: var(--text-muted);">{{ t('Email') }}</span>
+            <a href="mailto:{{ it_user.email }}"
+                style="text-align: {{ 'left' if current_lang == 'ar' else 'right' }};">{{ it_user.email or '-' }}</a>
+        </div>
+        <div class="mb-3"
+            style="font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem;">
+            <span style="font-weight: bold; color: var(--text-muted);">{{ t('Personal Mobile') }}</span>
+            <span style="text-align: {{ 'left' if current_lang == 'ar' else 'right' }};" dir="ltr">
+                {% if it_user.is_mobile_public and it_user.mobile_number and it_user.mobile_number != '2001' %}
+                {{ it_user.mobile_number }}
+                {% else %}
+                <span class="text-muted" style="font-size: 0.9rem; opacity: 0.7;">Hidden</span>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+{% endblock %}

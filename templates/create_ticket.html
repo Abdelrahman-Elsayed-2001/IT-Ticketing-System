@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+.searchable-radio-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    background: var(--bg-color);
+}
+.searchable-radio-list label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+.searchable-radio-list label:hover {
+    background-color: var(--secondary-hover);
+}
+.searchable-radio-list label input {
+    margin-right: 12px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+.search-input {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+</style>
+<div class="dashboard-header">
+    <h1>{{ t('Create Ticket') }}</h1>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">{{ t('Cancel') }}</a>
+</div>
+
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <form method="POST" action="{{ url_for('main.new_ticket') }}" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="title">{{ t('Title') }}</label>
+            <input type="text" class="form-control" id="title" name="title" required placeholder="Brief summary of the issue">
+        </div>
+        
+        {% if current_user.role == 'IT' %}
+        <div class="form-group">
+            <label>{{ t('Opened By') }} (Proxy)</label>
+            <div style="margin-bottom: 15px;">
+                <input type="text" class="search-input" placeholder="Search users..." onkeyup="filterCategories(this, 'user-list')">
+                <div class="searchable-radio-list" id="user-list">
+                    {% for u in all_users %}
+                    <label>
+                        <input type="radio" name="proxy_user_id" value="{{ u.id }}" {% if u.id == current_user.id %}checked{% endif %}>
+                        {{ u.localized_name }} (@{{ u.username }})
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="form-group">
+            <label>{{ t('Category') }}</label>
+            <div style="margin-bottom: 15px;">
+                <input type="text" class="search-input" placeholder="Search categories..." onkeyup="filterCategories(this, 'category-list')">
+                <div class="searchable-radio-list" id="category-list">
+                    {% for cat in categories %}
+                    <label>
+                        <input type="radio" name="category_id" value="{{ cat.id }}" required>
+                        {{ cat.localized_name }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">{{ t('Description') }}</label>
+            <textarea class="form-control" id="description" name="description" rows="8" required placeholder="Provide detailed information..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="attachments">{{ t('Attachments') }} (Optional)</label>
+            <input type="file" class="form-control" id="attachments" name="attachments" multiple style="padding: 0.5rem;">
+        </div>
+        
+        <button type="submit" class="btn btn-primary mt-3">{{ t('Submit') }} {{ t('Ticket') }}</button>
+    </form>
+</div>
+
+<script>
+    function filterCategories(input, listId) {
+        const filter = input.value.toLowerCase();
+        const list = document.getElementById(listId);
+        const labels = list.getElementsByTagName('label');
+        for (let i = 0; i < labels.length; i++) {
+            const text = labels[i].textContent || labels[i].innerText;
+            if (text.toLowerCase().indexOf(filter) > -1) {
+                labels[i].style.display = "";
+            } else {
+                labels[i].style.display = "none";
+            }
+        }
+    }
+</script>
+{% endblock %}

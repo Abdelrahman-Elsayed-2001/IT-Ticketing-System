@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>{{ t('Notifications') }}</h1>
+    <a href="{{ url_for('main.export_csv', export_type='notifications') }}" class="btn btn-secondary">{{ t('Export to CSV') }}</a>
+</div>
+
+<div class="card">
+    {% if notifications %}
+        <div class="notif-list" style="max-width: 800px; margin: 0 auto;">
+            {% for notif in notifications %}
+                {% set msgs = notif.message.split('|||') %}
+                {% set disp_msg = msgs[0] if current_lang == 'ar' else (msgs[1] if msgs|length > 1 else msgs[0]) %}
+                <div class="notif-item" style="border-bottom: 1px solid var(--border-color); padding: 15px 0;">
+                    <div class="d-flex justify-between align-center">
+                        <div>
+                            {% if notif.link %}
+                                <a href="{{ notif.link }}" style="font-weight: {{ 'normal' if notif.is_read else 'bold' }}; color: var(--text-primary);">{{ disp_msg }}</a>
+                            {% else %}
+                                <span style="font-weight: {{ 'normal' if notif.is_read else 'bold' }};">{{ disp_msg }}</span>
+                            {% endif %}
+                            <div class="text-muted mt-2" style="font-size: 0.85rem;">{{ notif.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        </div>
+                        {% if not notif.is_read %}
+                            <span class="badge badge-staff">New</span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-center text-secondary my-4">{{ t('No new notifications') }}</p>
+    {% endif %}
+</div>
+{% endblock %}

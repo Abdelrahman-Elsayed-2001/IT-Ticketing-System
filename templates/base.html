@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}" dir="{{ 'rtl' if current_lang == 'ar' else 'ltr' }}" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('Ticketing System') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: {
+                    {
+                    "'Cairo', sans-serif" if current_lang=='ar' else "'Inter', sans-serif"
+                }
+            }
+
+            ;
+        }
+
+        @media print {
+            .print-only-info {
+                display: block !important;
+            }
+        }
+
+        .nav-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .nav-dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: var(--card-bg, #fff);
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--border-color, #eee);
+        }
+
+        .nav-dropdown:hover .nav-dropdown-content {
+            display: block;
+        }
+
+        .nav-dropdown-content a {
+            color: var(--text-color, #e2e0e0) !important;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.95rem;
+        }
+
+        .nav-dropdown-content a:hover {
+            background-color: var(--hover-color, #f1f1f1);
+        }
+
+        .dark-theme .nav-dropdown-content {
+            background-color: #2a2a2a;
+            border-color: #444;
+        }
+
+        .dark-theme .nav-dropdown-content a {
+            color: #eee !important;
+        }
+
+        .dark-theme .nav-dropdown-content a:hover {
+            background-color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="{{ url_for('main.dashboard') }}" class="logo">{{ t('Ticketing System') }}</a>
+            <div class="nav-links">
+                {% if current_user.is_authenticated %}
+                <span class="user-greeting" onclick="window.location.href='{{ url_for('main.profile') }}'">{{
+                    t('Welcome,
+                    ') }} {{ current_user.localized_name.split(' ')[0] }}</span>
+
+                <div class="notification-wrapper">
+                    <button id="notif-btn" class="icon-btn" aria-label="{{ t('Notifications') }}">
+                        🔔
+                        {% if unread_notifications|length > 0 %}
+                        <span class="notif-badge">{{ unread_notifications|length }}</span>
+                        {% endif %}
+                    </button>
+                    <div id="notif-dropdown" class="notif-dropdown hidden">
+                        <div class="notif-header"
+                            style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>{{ t('Notifications') }}</span>
+                            {% if unread_notifications|length > 0 %}
+                            <button id="read-all-btn" class="btn btn-sm btn-secondary"
+                                style="font-size: 0.75rem; padding: 2px 6px;">{{ t('Read All') }}</button>
+                            {% endif %}
+                        </div>
+                        <div class="notif-list">
+                            {% for notif in unread_notifications %}
+                            {% set msgs = notif.message.split('|||') %}
+                            {% set disp_msg = msgs[0] if current_lang == 'ar' else (msgs[1] if msgs|length > 1 else
+                            msgs[0]) %}
+                            <div class="notif-item" data-id="{{ notif.id }}">
+                                {% if notif.link %}
+                                <a href="{{ notif.link }}">{{ disp_msg }}</a>
+                                {% else %}
+                                <span>{{ disp_msg }}</span>
+                                {% endif %}
+                                <button class="mark-read-btn" title="Mark as read">✓</button>
+                            </div>
+                            {% else %}
+                            <div class="notif-empty">{{ t('No new notifications') }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="notif-footer"
+                            style="text-align: center; border-top: 1px solid var(--border-color);">
+                            <a href="{{ url_for('main.notifications') }}"
+                                style="display: block; padding: 10px; color: var(--primary-color); font-size: 0.9rem; text-decoration: none;">{{
+                                t('View All Notifications') }}</a>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="{{ url_for('main.tickets_list') }}" class="nav-link">{{ t('Tickets List') }}</a>
+                <a href="{{ url_for('main.chat') }}" class="nav-link">{{ t('Chat') }}</a>
+                <a href="{{ url_for('main.contact_us') }}" class="nav-link">{{ t('Contact Us') }}</a>
+                <a href="{{ url_for('main.logout') }}" style="color: var(--danger-color, #dc3545) !important;">{{
+                    t('Logout') }}</a>
+
+                <div class="nav-dropdown">
+                    <span class="nav-link" style="cursor: pointer; padding: 0.5rem 1rem;">{{ t('Menu') }} ▼</span>
+                    <div class="nav-dropdown-content">
+                        {% if current_user.role == 'IT' %}
+                        <a href="{{ url_for('main.settings') }}">{{ t('Settings') }}</a>
+                        <a href="{{ url_for('main.logs') }}">{{ t('Logs') }}</a>
+                        {% endif %}
+                        <a href="{{ url_for('main.profile') }}">{{ t('Profile') }}</a>
+                    </div>
+                </div>
+                {% endif %}
+                <button id="theme-toggle" class="icon-btn theme-toggle" aria-label="{{ t('Toggle Theme') }}">
+                    <span class="icon">🌓</span>
+                </button>
+                <a href="{{ url_for('main.set_lang', lang='en' if current_lang == 'ar' else 'ar') }}" class="icon-btn"
+                    aria-label="{{ t('Change Language') }}" style="text-decoration: none; font-size: 1.2rem;">
+                    {{ 'English' if current_lang == 'ar' else 'العربية' }}
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <div class="print-hidden"
+        style="position: fixed; bottom: 10px; {{ 'left: 15px;' if current_lang == 'ar' else 'right: 15px;' }} font-size: 0.85rem; color: var(--text-muted, #888); opacity: 0.8; z-index: 1000; pointer-events: none; text-align: {{ 'left' if current_lang == 'ar' else 'right' }};">
+        <div>{{ t('Version') }}: {{ app_version }}</div>
+        <div>Developed by Abdelrahman</div>
+    </div>
+
+    <div class="print-only-info"
+        style="display: none; text-align: {{ 'left' if current_lang == 'ar' else 'right' }}; font-size: 0.9rem; color: #555; position: fixed; bottom: 10px; {{ 'left: 15px;' if current_lang == 'ar' else 'right: 15px;' }}; z-index: 1000;">
+        {{ t('Printed by') }}: {{ current_user.display_name }} (@{{ current_user.username }}) <br>
+        {{ t('Date') }}: <span id="current-print-time"></span>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        window.addEventListener('beforeprint', function () {
+            const timeEl = document.getElementById('current-print-time');
+            if (timeEl) {
+                const now = new Date();
+                timeEl.innerText = now.toLocaleString();
+            }
+        });
+    </script>
+</body>
+
+</html>

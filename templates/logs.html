@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <h1>{{ t('System Audit Logs') }}</h1>
+    <a href="{{ url_for('main.export_csv', export_type='logs') }}" class="btn btn-secondary">{{ t('Export to CSV') }}</a>
+</div>
+
+<style>
+    .searchable-checkbox-list {
+        max-height: 250px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 10px;
+        background: var(--bg-color);
+    }
+    .searchable-checkbox-list label {
+        display: flex; align-items: center; margin-bottom: 8px; cursor: pointer; font-size: 0.95rem;
+    }
+    .searchable-checkbox-list label input {
+        margin-right: 10px; width: 16px; height: 16px;
+    }
+    .search-input {
+        width: 100%; padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--border-color); border-radius: 4px;
+    }
+</style>
+
+<!-- Filters -->
+<div class="card mb-4"
+    style="padding: 1rem 1.5rem; background: var(--bg-color); border: 1px solid var(--border-color); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px;">
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; flex: 1;">
+        <strong style="margin-right: 10px;">{{ t('Filters') }}:</strong>
+        <input type="text" id="filterSearch" class="form-control" style="flex: 2; min-width: 250px;"
+            placeholder="Search Target ID, Details..." onkeyup="filterLogs()">
+
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="margin:0; font-size: 0.9rem; white-space: nowrap;">{{ t('From') }}:</label>
+            <input type="date" id="filterDateFrom" class="form-control" onchange="filterLogs()">
+            <label style="margin:0 0 0 10px; font-size: 0.9rem; white-space: nowrap;">{{ t('To') }}:</label>
+            <input type="date" id="filterDateTo" class="form-control" onchange="filterLogs()">
+        </div>
+    </div>
+
+    <button type="button" class="btn btn-secondary"
+        onclick="document.getElementById('advancedFiltersModal').style.display='block'">
+        {{ t('Advanced Filters') }}
+    </button>
+</div>
+
+<div class="card">
+    {% if logs %}
+    <div class="table-responsive">
+        <table class="ticket-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>{{ t('Date/Time') }}</th>
+                    <th>{{ t('User') }}</th>
+                    <th>{{ t('Action') }}</th>
+                    <th>{{ t('Target Type') }}</th>
+                    <th>{{ t('Target ID') }}</th>
+                    <th>{{ t('Details') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr class="log-row" 
+                    data-search="{{ log.target_id|string|lower }} {{ log.details|string|lower }}"
+                    data-user="{{ log.user_id }}"
+                    data-action="{{ log.action }}"
+                    data-target-type="{{ log.target_type or '' }}"
+                    data-date="{{ log.created_at.strftime('%Y-%m-%d') }}">
+                    <td>{{ log.id }}</td>
+                    <td style="min-width: 150px;">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ log.user.username if log.user else '-' }}</td>
+                    <td><span class="badge badge-staff">{{ t(log.action) }}</span></td>
+                    <td>{{ t(log.target_type) if log.target_type else '-' }}</td>
+                    <td>{{ log.target_id if log.target_id else '-' }}</td>
+                    <td style="word-break: break-word;">{{ log.details if log.details else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-secondary my-4">No logs found.</p>
+    {% endif %}
+</div>
+
+<!-- Advanced Filters Modal -->
+<div id="advancedFiltersModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <span class="close-btn"
+            onclick="document.getElementById('advancedFiltersModal').style.display='none'">&times;</span>
+        <h2 class="mb-4">{{ t('Advanced Filters') }}</h2>
+
+        <div class="tabs mb-3">
+            <button class="tab-btn active" onclick="showFilterTab('users', event)" type="button">{{ t('Users') }}</button>
+            <button class="tab-btn" onclick="showFilterTab('actions', event)" type="button">{{ t('Actions') }}</button>
+            <button class="tab-btn" onclick="showFilterTab('target-types', event)" type="button">{{ t('Target Type') }}</button>
+            <button class="tab-btn" onclick="showFilterTab('target-id', event)" type="button">{{ t('Target ID') }}</button>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="filter-users-tab" class="filter-tab-content">
+            <input type="text" class="search-input" placeholder="Search users..." onkeyup="filterCheckboxes(this, 'users-list')">
+            <div class="searchable-checkbox-list" id="users-list">
+                {% for u in users %}
+                <label>
+                    <input type="checkbox" class="filter-user-cb" value="{{ u.id }}" onchange="filterLogs()">
+                    {{ u.display_name }} <span class="text-muted ml-1" style="font-size:0.8rem;">(@{{ u.username }})</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Actions Tab -->
+        <div id="filter-actions-tab" class="filter-tab-content" style="display:none;">
+            <input type="text" class="search-input" placeholder="Search actions..." onkeyup="filterCheckboxes(this, 'actions-list')">
+            <div class="searchable-checkbox-list" id="actions-list">
+                {% for a in actions %}
+                <label>
+                    <input type="checkbox" class="filter-action-cb" value="{{ a }}" onchange="filterLogs()">
+                    {{ t(a) }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Target Types Tab -->
+        <div id="filter-target-types-tab" class="filter-tab-content" style="display:none;">
+            <input type="text" class="search-input" placeholder="Search target types..." onkeyup="filterCheckboxes(this, 'target-types-list')">
+            <div class="searchable-checkbox-list" id="target-types-list">
+                {% for t_type in target_types %}
+                <label>
+                    <input type="checkbox" class="filter-target-type-cb" value="{{ t_type }}" onchange="filterLogs()">
+                    {{ t(t_type) }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Target ID Tab -->
+        <div id="filter-target-id-tab" class="filter-tab-content" style="display:none;">
+            <div class="form-group">
+                <label>{{ t('Target ID') }}</label>
+                <input type="text" id="filterTargetIdInput" class="form-control" placeholder="Enter Target ID..." onkeyup="filterLogs()">
+            </div>
+        </div>
+
+        <div class="mt-4" style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="clearFilters()">{{ t('Clear All') }}</button>
+            <button type="button" class="btn btn-primary"
+                onclick="document.getElementById('advancedFiltersModal').style.display='none'">{{ t('Done') }}</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showFilterTab(tabName, event) {
+        document.querySelectorAll('.filter-tab-content').forEach(el => el.style.display = 'none');
+        const modalTabs = event.currentTarget.parentElement.querySelectorAll('.tab-btn');
+        modalTabs.forEach(el => el.classList.remove('active'));
+
+        document.getElementById('filter-' + tabName + '-tab').style.display = 'block';
+        event.currentTarget.classList.add('active');
+    }
+
+    function filterCheckboxes(input, listId) {
+        const filter = input.value.toLowerCase();
+        const list = document.getElementById(listId);
+        const labels = list.getElementsByTagName('label');
+        for (let i = 0; i < labels.length; i++) {
+            const text = labels[i].textContent || labels[i].innerText;
+            if (text.toLowerCase().indexOf(filter) > -1) {
+                labels[i].style.display = "";
+            } else {
+                labels[i].style.display = "none";
+            }
+        }
+    }
+
+    function clearFilters() {
+        document.querySelectorAll('.filter-user-cb, .filter-action-cb, .filter-target-type-cb').forEach(cb => cb.checked = false);
+        document.getElementById('filterSearch').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+        document.getElementById('filterTargetIdInput').value = '';
+        filterLogs();
+    }
+
+    function getCheckedValues(className) {
+        const checkboxes = document.querySelectorAll('.' + className + ':checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+
+
+    function filterLogs() {
+        const searchVal = document.getElementById('filterSearch').value.toLowerCase();
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+        const targetIdVal = document.getElementById('filterTargetIdInput').value.toLowerCase();
+
+        const users = getCheckedValues('filter-user-cb');
+        const actions = getCheckedValues('filter-action-cb');
+        const targetTypes = getCheckedValues('filter-target-type-cb');
+
+        const rows = document.querySelectorAll('.log-row');
+        rows.forEach(row => {
+            const rowSearch = row.getAttribute('data-search') || '';
+            const rowUser = row.getAttribute('data-user') || '';
+            const rowAction = row.getAttribute('data-action') || '';
+            const rowTargetType = row.getAttribute('data-target-type') || '';
+            const rowDate = row.getAttribute('data-date') || '';
+            
+            const tdTargetId = (row.cells[5].innerText || row.cells[5].textContent).trim();
+
+            let match = true;
+            if (searchVal && !rowSearch.includes(searchVal)) match = false;
+            // Partial match for target ID just in case
+            if (targetIdVal && !tdTargetId.toLowerCase().includes(targetIdVal)) match = false;
+            
+            if (users.length > 0 && !users.includes(rowUser)) match = false;
+            if (actions.length > 0 && !actions.includes(rowAction)) match = false;
+            if (targetTypes.length > 0 && !targetTypes.includes(rowTargetType)) match = false;
+
+            if (dateFrom && rowDate < dateFrom) match = false;
+            if (dateTo && rowDate > dateTo) match = false;
+
+            row.style.display = match ? '' : 'none';
+        });
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function (event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,12 @@
+{
+    "port": 10005,
+    "host": "0.0.0.0",
+    "debug": true,
+    "app_script": "app.py",
+    "requirements_file": "requirements.txt",
+    "app_ID": "",
+    "version": "1.4.0",
+    "app_name": "IT Ticketing",
+    "python_ver": "",
+    "whatsapp_api_url": "http://localhost:8090"
+}

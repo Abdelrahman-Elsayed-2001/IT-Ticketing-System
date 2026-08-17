@@ -1,0 +1,369 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>{{ t('Tickets List') }}</h1>
+    <div style="display: flex; gap: 10px;">
+        <a href="{{ url_for('main.export_csv', export_type='tickets') }}" class="btn btn-secondary">{{ t('Export to CSV') }}</a>
+        <a href="{{ url_for('main.new_ticket') }}" class="btn btn-primary">{{ t('Create Ticket') }}</a>
+    </div>
+</div>
+
+<style>
+    .searchable-checkbox-list {
+        max-height: 250px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 10px;
+        background: var(--bg-color);
+    }
+
+    .searchable-checkbox-list label {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
+    .searchable-checkbox-list label input {
+        margin-right: 10px;
+        width: 16px;
+        height: 16px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 8px 12px;
+        margin-bottom: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+    }
+</style>
+
+<!-- Filters -->
+<div class="card mb-4"
+    style="padding: 1rem 1.5rem; background: var(--bg-color); border: 1px solid var(--border-color); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px;">
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; flex: 1;">
+        <strong style="margin-right: 10px;">{{ t('Filters') }}:</strong>
+        <input type="text" id="filterSearch" class="form-control" style="flex: 2; min-width: 250px;"
+            placeholder="Search ID, Title, Content..." onkeyup="filterTickets()">
+
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="margin:0; font-size: 0.9rem; white-space: nowrap;">{{ t('From') }}:</label>
+            <input type="date" id="filterDateFrom" class="form-control" onchange="filterTickets()">
+            <label style="margin:0 0 0 10px; font-size: 0.9rem; white-space: nowrap;">{{ t('To') }}:</label>
+            <input type="date" id="filterDateTo" class="form-control" onchange="filterTickets()">
+        </div>
+    </div>
+
+    <button type="button" class="btn btn-secondary"
+        onclick="document.getElementById('advancedFiltersModal').style.display='block'">
+        {{ t('Advanced Filters') }}
+    </button>
+</div>
+
+<div class="card">
+    <h2 class="mb-4">{{ t('Active Tickets') }}</h2>
+    {% if tickets %}
+    <div class="table-responsive">
+        <table class="ticket-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>{{ t('Title') }}</th>
+                    <th>{{ t('Category') }}</th>
+                    <th>{{ t('Status') }}</th>
+                    <th>{{ t('Opened By') }}</th>
+                    <th>{{ t('Assignee') }}</th>
+                    <th>{{ t('Date/Time') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr class="ticket-row" data-search="{{ ticket.id }} {{ ticket.title|lower }}"
+                    data-content="{{ ticket.description|e|lower }} {% for r in ticket.replies %}{{ r.content|e|lower }} {% endfor %}"
+                    data-category="{{ ticket.category_id or '' }}" data-status="{{ ticket.status_id or '' }}"
+                    data-creator="{{ ticket.user_id }}"
+                    data-assignee="{% if ticket.assignees %}{% for a in ticket.assignees %}{{ a.id }},{% endfor %}{% else %}none{% endif %}"
+                    data-date="{{ ticket.created_at.strftime('%Y-%m-%d') }}"
+                    onclick="window.location='{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}'"
+                    style="cursor: pointer;">
+                    <td>IT-Ticket#{{ ticket.id }}</td>
+                    <td><strong>{{ ticket.title }}</strong></td>
+                    <td>{{ ticket.category.localized_name if ticket.category else '-' }}</td>
+                    <td>
+                        <span class="status-badge"
+                            style="background-color: {{ ticket.status.color }}20; color: {{ ticket.status.color }};">
+                            {{ ticket.status.localized_name }}
+                        </span>
+                    </td>
+                    <td>{{ ticket.creator.localized_name if ticket.creator else '-' }}</td>
+                    <td>
+                        {% if ticket.assignees %}
+                        {% for assignee in ticket.assignees %}
+                        <a href="{{ url_for('main.contact_it_user', username=assignee.username) }}"
+                            onclick="event.stopPropagation();"
+                            style="text-decoration:none; color:var(--primary-color);">{{ assignee.localized_name }}</a>{%
+                        if not loop.last %}, {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-secondary my-4">No active tickets found.</p>
+    {% endif %}
+</div>
+
+{% if current_user.role == 'IT' %}
+<div class="card mt-4">
+    <h2 class="mb-4">{{ t('Archived Tickets') }}</h2>
+    {% if archived_tickets %}
+    <div class="table-responsive">
+        <table class="ticket-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>{{ t('Title') }}</th>
+                    <th>{{ t('Category') }}</th>
+                    <th>{{ t('Status') }}</th>
+                    <th>{{ t('Opened By') }}</th>
+                    <th>{{ t('Assignee') }}</th>
+                    <th>{{ t('Date/Time') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in archived_tickets %}
+                <tr class="ticket-row" data-search="{{ ticket.id }} {{ ticket.title|lower }}"
+                    data-content="{{ ticket.description|e|lower }} {% for r in ticket.replies %}{{ r.content|e|lower }} {% endfor %}"
+                    data-category="{{ ticket.category_id or '' }}" data-status="{{ ticket.status_id or '' }}"
+                    data-creator="{{ ticket.user_id }}"
+                    data-assignee="{% if ticket.assignees %}{% for a in ticket.assignees %}{{ a.id }},{% endfor %}{% else %}none{% endif %}"
+                    data-date="{{ ticket.created_at.strftime('%Y-%m-%d') }}"
+                    onclick="window.location='{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}'"
+                    style="cursor: pointer; opacity: 0.7;">
+                    <td>#{{ ticket.id }}</td>
+                    <td><strong>{{ ticket.title }}</strong></td>
+                    <td>{{ ticket.category.localized_name if ticket.category else '-' }}</td>
+                    <td>
+                        <span class="status-badge"
+                            style="background-color: {{ ticket.status.color }}20; color: {{ ticket.status.color }};">
+                            {{ ticket.status.localized_name }}
+                        </span>
+                    </td>
+                    <td>{{ ticket.creator.localized_name if ticket.creator else '-' }}</td>
+                    <td>
+                        {% if ticket.assignees %}
+                        {% for assignee in ticket.assignees %}
+                        <a href="{{ url_for('main.contact_it_user', username=assignee.username) }}"
+                            onclick="event.stopPropagation();"
+                            style="text-decoration:none; color:var(--primary-color);">{{ assignee.localized_name }}</a>{%
+                        if not loop.last %}, {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-secondary my-4">No archived tickets found.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Advanced Filters Modal -->
+<div id="advancedFiltersModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <span class="close-btn"
+            onclick="document.getElementById('advancedFiltersModal').style.display='none'">&times;</span>
+        <h2 class="mb-4">{{ t('Advanced Filters') }}</h2>
+
+        <div class="tabs mb-3">
+            <button class="tab-btn active" onclick="showFilterTab('creators', event)" type="button">{{ t('Creators')
+                }}</button>
+            <button class="tab-btn" onclick="showFilterTab('assignees', event)" type="button">{{ t('Assignees')
+                }}</button>
+            <button class="tab-btn" onclick="showFilterTab('categories', event)" type="button">{{ t('Categories')
+                }}</button>
+            <button class="tab-btn" onclick="showFilterTab('statuses', event)" type="button">{{ t('Statuses')
+                }}</button>
+        </div>
+
+        <!-- Creators Tab -->
+        <div id="filter-creators-tab" class="filter-tab-content">
+            <input type="text" class="search-input" placeholder="Search creators..."
+                onkeyup="filterCheckboxes(this, 'creators-list')">
+            <div class="searchable-checkbox-list" id="creators-list">
+                {% for u in all_users %}
+                <label>
+                    <input type="checkbox" class="filter-creator-cb" value="{{ u.id }}" onchange="filterTickets()">
+                    {{ u.display_name }} <span class="text-muted ml-1" style="font-size:0.8rem;">(@{{ u.username
+                        }})</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Assignees Tab -->
+        <div id="filter-assignees-tab" class="filter-tab-content" style="display:none;">
+            <input type="text" class="search-input" placeholder="Search assignees..."
+                onkeyup="filterCheckboxes(this, 'assignees-list')">
+            <div class="searchable-checkbox-list" id="assignees-list">
+                <label>
+                    <input type="checkbox" class="filter-assignee-cb" value="none" onchange="filterTickets()">
+                    <em>Unassigned</em>
+                </label>
+                {% for u in all_users %}
+                {% if u.role == 'IT' %}
+                <label>
+                    <input type="checkbox" class="filter-assignee-cb" value="{{ u.id }}" onchange="filterTickets()">
+                    {{ u.display_name }} <span class="text-muted ml-1" style="font-size:0.8rem;">(@{{ u.username
+                        }})</span>
+                </label>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Categories Tab -->
+        <div id="filter-categories-tab" class="filter-tab-content" style="display:none;">
+            <input type="text" class="search-input" placeholder="Search categories..."
+                onkeyup="filterCheckboxes(this, 'categories-list')">
+            <div class="searchable-checkbox-list" id="categories-list">
+                {% for cat in categories %}
+                <label>
+                    <input type="checkbox" class="filter-category-cb" value="{{ cat.id }}" onchange="filterTickets()">
+                    {{ cat.localized_name }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Statuses Tab -->
+        <div id="filter-statuses-tab" class="filter-tab-content" style="display:none;">
+            <input type="text" class="search-input" placeholder="Search statuses..."
+                onkeyup="filterCheckboxes(this, 'statuses-list')">
+            <div class="searchable-checkbox-list" id="statuses-list">
+                {% for stat in statuses %}
+                <label>
+                    <input type="checkbox" class="filter-status-cb" value="{{ stat.id }}" onchange="filterTickets()">
+                    {{ stat.localized_name }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mt-4" style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="clearFilters()">{{ t('Clear All') }}</button>
+            <button type="button" class="btn btn-primary"
+                onclick="document.getElementById('advancedFiltersModal').style.display='none'">{{ t('Done') }}</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showFilterTab(tabName, event) {
+        document.querySelectorAll('.filter-tab-content').forEach(el => el.style.display = 'none');
+        const modalTabs = event.currentTarget.parentElement.querySelectorAll('.tab-btn');
+        modalTabs.forEach(el => el.classList.remove('active'));
+
+        document.getElementById('filter-' + tabName + '-tab').style.display = 'block';
+        event.currentTarget.classList.add('active');
+    }
+
+    function filterCheckboxes(input, listId) {
+        const filter = input.value.toLowerCase();
+        const list = document.getElementById(listId);
+        const labels = list.getElementsByTagName('label');
+        for (let i = 0; i < labels.length; i++) {
+            const text = labels[i].textContent || labels[i].innerText;
+            if (text.toLowerCase().indexOf(filter) > -1) {
+                labels[i].style.display = "";
+            } else {
+                labels[i].style.display = "none";
+            }
+        }
+    }
+
+    function clearFilters() {
+        document.querySelectorAll('.filter-creator-cb, .filter-assignee-cb, .filter-category-cb, .filter-status-cb').forEach(cb => cb.checked = false);
+        document.getElementById('filterSearch').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+        filterTickets();
+    }
+
+    function getCheckedValues(className) {
+        const checkboxes = document.querySelectorAll('.' + className + ':checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    function filterTickets() {
+        const searchVal = document.getElementById('filterSearch').value.toLowerCase();
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+
+        const creators = getCheckedValues('filter-creator-cb');
+        const assignees = getCheckedValues('filter-assignee-cb');
+        const categories = getCheckedValues('filter-category-cb');
+        const statuses = getCheckedValues('filter-status-cb');
+
+        const rows = document.querySelectorAll('.ticket-row');
+        rows.forEach(row => {
+            const rowSearch = row.getAttribute('data-search') || '';
+            const rowContent = row.getAttribute('data-content') || '';
+            const rowCat = row.getAttribute('data-category') || '';
+            const rowStat = row.getAttribute('data-status') || '';
+            const rowCreator = row.getAttribute('data-creator') || '';
+            const rowAssignee = row.getAttribute('data-assignee') || '';
+            const rowDate = row.getAttribute('data-date') || '';
+
+            let match = true;
+            if (searchVal && !(rowSearch.includes(searchVal) || rowContent.includes(searchVal))) match = false;
+
+            if (creators.length > 0 && !creators.includes(rowCreator)) match = false;
+
+            if (assignees.length > 0) {
+                let assigneeMatch = false;
+                if (rowAssignee === 'none') {
+                    if (assignees.includes('none')) assigneeMatch = true;
+                } else {
+                    let rowAssigneesArr = rowAssignee.split(',').filter(x => x);
+                    for (let a of rowAssigneesArr) {
+                        if (assignees.includes(a)) { assigneeMatch = true; break; }
+                    }
+                }
+                if (!assigneeMatch) match = false;
+            }
+
+            if (categories.length > 0 && !categories.includes(rowCat)) match = false;
+            if (statuses.length > 0 && !statuses.includes(rowStat)) match = false;
+
+            if (dateFrom && rowDate < dateFrom) match = false;
+            if (dateTo && rowDate > dateTo) match = false;
+
+            row.style.display = match ? '' : 'none';
+        });
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function (event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

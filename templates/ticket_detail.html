@@ -1,0 +1,471 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="ticket-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+    <div>
+        <div class="ticket-title-section">
+            <h2>IT-Ticket#{{ ticket.id }}:</h2>
+            <h2>{{ ticket.title }}</h2>
+            <span class="status-badge"
+                style="background-color: {{ ticket.status.color }}20; color: {{ ticket.status.color }};">
+                {{ ticket.status.localized_name }}
+            </span>
+        </div>
+        <div class="ticket-meta">
+            {{ t('Category') }}: <strong>{{ ticket.category.localized_name if ticket.category else '-' }}</strong> |
+            {{ t('Created At') }}: {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }} |
+            {{ t('Updated At') }}: {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}
+        </div>
+    </div>
+    <button class="btn btn-secondary" onclick="window.print()" style="margin-top: 10px;">{{ t('Print') }}</button>
+</div>
+
+<style>
+    @media print {
+        .navbar, .btn, form, .sidebar-column, .modal, .alert, .btn-icon, .print-hidden {
+            display: none !important;
+        }
+        .main-column {
+            width: 100% !important;
+            flex: 100% !important;
+            max-width: 100% !important;
+        }
+        .ticket-layout {
+            display: block !important;
+        }
+        body {
+            background-color: white !important;
+            color: black !important;
+        }
+        .card, .reply-card {
+            box-shadow: none !important;
+            border: 1px solid #ccc !important;
+            break-inside: avoid;
+        }
+        .ticket-header {
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+    }
+</style>
+
+<div class="ticket-layout">
+    <div class="main-column">
+        <!-- Original Ticket Content -->
+        <div class="card mb-4" style="position: relative;">
+            {% if can_edit_or_delete(ticket) %}
+            <button class="btn btn-sm btn-secondary"
+                style="position: absolute; top: 15px; {{'left' if current_lang == 'ar' else 'right'}}: 15px;"
+                onclick="openEditModal('ticket', {{ ticket.id }}, `{{ ticket.description|replace('`', '\\`') }}`)">{{
+                t('Edit') }}</button>
+            {% endif %}
+
+            <div class="d-flex align-center mb-3">
+                <div
+                    style="width: 40px; height: 40px; background: var(--primary-color); border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">
+                    {{ ticket.creator.display_name[0] | upper }}
+                </div>
+                <div class="ml-2">
+                    <strong style="display: block;">{{ ticket.creator.display_name }}</strong>
+                    <span class="badge badge-staff">{{ t(ticket.creator.role) }}</span>
+                </div>
+            </div>
+            <div class="ticket-description mt-3" style="white-space: pre-wrap;">{{ ticket.description }}</div>
+
+            {% if ticket.attachments %}
+            <div class="mt-4 pt-3" style="border-top: 1px solid var(--border-color);">
+                <strong>{{ t('Attachments') }}:</strong>
+                <ul class="attachment-list mt-2">
+                    {% for att in ticket.attachments %}
+                    <li>
+                        <a href="{{ url_for('main.download_attachment', attachment_id=att.id) }}">📎 {{ att.filename }}</a>
+                        {% set ext = att.filename.split('.')[-1].lower() if '.' in att.filename else '' %}
+                        {% if ext in ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'] %}
+                        <a href="{{ url_for('main.view_attachment', attachment_id=att.id) }}" target="_blank" class="btn btn-sm btn-secondary ml-2" style="font-size: 0.75rem; padding: 2px 5px; text-decoration: none;">{{ t('View') }}</a>
+                        {% endif %}
+                        {% if can_edit_or_delete(att) %}
+                        <form method="POST" action="{{ url_for('main.delete_attachment', attachment_id=att.id) }}"
+                            style="display:inline;"
+                            onsubmit="return confirm('Are you sure you want to delete this attachment?');">
+                            <button type="submit" class="btn-icon text-danger ml-2" title="Delete">🗑️</button>
+                        </form>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Replies -->
+        <h3 class="mb-3">{{ t('Replies') }} (<span id="replies-count">{{ ticket.replies|length }}</span>)</h3>
+        <div class="replies-container" id="replies-container">
+            {% include '_ticket_replies.html' %}
+        </div>
+
+        <!-- Add Reply Form -->
+        {% if ticket.is_archived == False %}
+        <div class="card mt-4 print-hidden">
+            <h3 class="mb-3">{{ t('Add Reply') }}</h3>
+            <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}"
+                enctype="multipart/form-data">
+                <input type="hidden" name="action" value="reply">
+                <div class="form-group">
+                    <textarea class="form-control" name="content" rows="4" required
+                        placeholder="Type your reply here..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="reply_attachments">{{ t('Attachments') }} (Optional)</label>
+                    <input type="file" class="form-control" id="reply_attachments" name="attachments" multiple
+                        style="padding: 0.5rem;">
+                </div>
+                <button type="submit" class="btn btn-primary">{{ t('Reply') }}</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar-column">
+        {% if current_user.role == 'IT' %}
+        <div class="card mb-4">
+            <h3 class="mb-3">IT Actions</h3>
+
+            {% if ticket.is_archived == False %}
+            <!-- Change Status -->
+            <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}" class="mb-4">
+                <input type="hidden" name="action" value="update_status">
+                <label style="font-weight:bold; display:block; margin-bottom:5px;">{{ t('Status') }}</label>
+                <div class="input-group">
+                    <select name="status_id" class="form-control" style="flex:1;">
+                        {% for s in statuses %}
+                        <option value="{{ s.id }}" {% if ticket.status_id==s.id %}selected{% endif %}>{{
+                            s.localized_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary">{{ t('Update') }}</button>
+                </div>
+            </form>
+
+            <!-- Change Category -->
+            <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}" class="mb-4">
+                <input type="hidden" name="action" value="update_category">
+                <label style="font-weight:bold; display:block; margin-bottom:5px;">{{ t('Category') }}</label>
+                <div class="input-group">
+                    <select name="category_id" class="form-control" style="flex:1;">
+                        {% for c in categories %}
+                        <option value="{{ c.id }}" {% if ticket.category_id==c.id %}selected{% endif %}>{{
+                            c.localized_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary">{{ t('Update') }}</button>
+                </div>
+            </form>
+
+            <!-- Assign Ticket -->
+            <div class="mb-4">
+                <label style="font-weight:bold; display:block; margin-bottom:5px;">{{ t('Assignees') }}</label>
+                <button type="button" class="btn btn-secondary w-100"
+                    onclick="document.getElementById('assignModal').style.display='block'">
+                    {{ t('Update') }} {{ t('Assignees') }}
+                </button>
+            </div>
+
+
+
+            <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}"
+                onsubmit="return confirm('Are you sure you want to archive this ticket?');">
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="btn btn-danger btn-block">{{ t('Archive') }} {{ t('Ticket') }}</button>
+            </form>
+
+            {% else %}
+            <!-- Restore Ticket -->
+            <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}">
+                <input type="hidden" name="action" value="restore">
+                <button type="submit" class="btn btn-success btn-block">{{ t('Restore') }} {{ t('Ticket') }}</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Information Card -->
+        <div class="card">
+            <h3 class="mb-3">Ticket Information</h3>
+            <div class="mb-3">
+                <strong>{{ t('Assignees') }}:</strong>
+                {% if ticket.assignees %}
+                <ul style="padding-left: 20px; margin-top: 5px;">
+                    {% for assignee in ticket.assignees %}
+                    <li>
+                        <a href="{{ url_for('main.contact_it_user', username=assignee.username) }}"
+                            style="text-decoration: none; color: var(--primary-color);">
+                            {{ assignee.display_name }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>Unassigned</p>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                <strong>{{ t('Collaborators') }}:</strong>
+                {% if ticket.collaborators %}
+                <ul style="padding-left: 20px; margin-top: 5px;">
+                    {% for collab in ticket.collaborators %}
+                    <li>
+                        {{ collab.display_name }}
+                        {% if current_user.role == 'IT' %}
+                        <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}"
+                            style="display:inline;">
+                            <input type="hidden" name="action" value="remove_collaborator">
+                            <input type="hidden" name="collab_id" value="{{ collab.id }}">
+                            <button type="submit" class="btn-icon text-danger ml-2" title="Remove"
+                                style="font-size:0.8rem;">✖</button>
+                        </form>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>None</p>
+                {% endif %}
+
+                {% if ticket.is_archived == False %}
+                <button type="button" class="btn btn-secondary btn-sm mt-2"
+                    onclick="document.getElementById('addCollaboratorsModal').style.display='block'">
+                    {{ t('Add') }} {{ t('Collaborators') }}
+                </button>
+                {% endif %}
+            </div>
+
+            {% if ticket.is_archived %}
+            <div class="alert alert-danger mt-3" style="margin-bottom:0; padding:10px; font-size:0.9rem;">
+                This ticket is archived and cannot be replied to.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Edit Content Modal -->
+<div id="editContentModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('editContentModal')">&times;</span>
+        <h2 class="mb-4">{{ t('Edit') }} Content</h2>
+        <!-- Form action set dynamically via JS -->
+        <form id="editForm" method="POST" action="">
+            <input type="hidden" name="action" id="edit_action_type" value="">
+            <div class="form-group">
+                <label>Content</label>
+                <textarea class="form-control" name="content" id="edit_content_area" rows="6" required></textarea>
+            </div>
+            <p class="text-muted" style="font-size:0.85rem; margin-bottom:1rem;">Note: You can only edit within 15
+                minutes of creation unless you are IT.</p>
+            <button type="submit" class="btn btn-primary w-100">{{ t('Update') }} Content</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .searchable-checkbox-list {
+        max-height: 250px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 10px;
+        background: #fff;
+    }
+
+    .dark-theme .searchable-checkbox-list {
+        background: #2a2a2a;
+    }
+
+    .searchable-checkbox-list label {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
+    .searchable-checkbox-list label input {
+        margin-right: 10px;
+        width: 16px;
+        height: 16px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 8px 12px;
+        margin-bottom: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+    }
+</style>
+
+<!-- Add Collaborators Modal -->
+<div id="addCollaboratorsModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('addCollaboratorsModal')">&times;</span>
+        <h2 class="mb-4">{{ t('Add') }} {{ t('Collaborators') }}</h2>
+
+        <div class="tabs mb-3">
+            <button class="tab-btn active" onclick="showCollabTab('users', event)" type="button">{{ t('Users')
+                }}</button>
+            {% if current_user.role == 'IT' %}
+            <button class="tab-btn" onclick="showCollabTab('groups', event)" type="button">{{ t('User Groups')
+                }}</button>
+            {% endif %}
+        </div>
+
+        <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}">
+            <input type="hidden" name="action" value="add_collaborators">
+
+            <div id="collab-users-tab" class="collab-tab-content">
+                <input type="text" class="search-input" placeholder="Search users by name or username..."
+                    onkeyup="filterCheckboxes(this, 'users-list')">
+                <div class="searchable-checkbox-list" id="users-list" style="font-size:0.8rem; color: black;">
+                    {% for u in staff_users %}
+                    {% if u not in ticket.collaborators and u.id != ticket.user_id %}
+                    <label>
+                        <input type="checkbox" name="user_ids" value="{{ u.id }}">
+                        {{ u.display_name }} <span class="text-muted ml-1" style="font-size:0.8rem; color: black;">(@{{
+                            u.username
+                            }})</span>
+                    </label>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if current_user.role == 'IT' %}
+            <div id="collab-groups-tab" class="collab-tab-content" style="display:none;">
+                <input type="text" class="search-input" placeholder="Search groups..."
+                    onkeyup="filterCheckboxes(this, 'groups-list')">
+                <div class="searchable-checkbox-list" id="groups-list" style="font-size:0.8rem; color: black;">
+                    {% for g in groups %}
+                    <label>
+                        <input type="checkbox" name="group_ids" value="{{ g.id }}">
+                        {{ g.name }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary w-100 mt-3">{{ t('Add') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- Assign Modal -->
+<div id="assignModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('assignModal')">&times;</span>
+        <h2 class="mb-4">{{ t('Update') }} {{ t('Assignees') }}</h2>
+
+        <form method="POST" action="{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}">
+            <input type="hidden" name="action" value="assign">
+            
+            <input type="text" class="search-input" placeholder="Search assignees..."
+                onkeyup="filterCheckboxes(this, 'assignees-list-modal')">
+            
+            <div class="searchable-checkbox-list" id="assignees-list-modal" style="font-size:0.8rem; color: black;">
+                {% for u in it_users %}
+                <label>
+                    <input type="checkbox" name="assignee_ids" value="{{ u.id }}" {% if u in ticket.assignees %}checked{% endif %}>
+                    {{ u.display_name }} <span class="text-muted ml-1" style="font-size:0.8rem; color: black;">(@{{ u.username }})</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">{{ t('Assign') }}</button>
+                <button type="button" class="btn btn-danger" style="flex: 1;" onclick="removeAllAssignees()">{{ t('Remove All') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function removeAllAssignees() {
+        const checkboxes = document.querySelectorAll('#assignees-list-modal input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+        document.querySelector('#assignModal form').submit();
+    }
+    function showCollabTab(tabName, event) {
+        document.querySelectorAll('.collab-tab-content').forEach(el => el.style.display = 'none');
+        const modalTabs = event.currentTarget.parentElement.querySelectorAll('.tab-btn');
+        modalTabs.forEach(el => el.classList.remove('active'));
+
+        document.getElementById('collab-' + tabName + '-tab').style.display = 'block';
+        event.currentTarget.classList.add('active');
+    }
+
+    function filterCheckboxes(input, listId) {
+        const filter = input.value.toLowerCase();
+        const list = document.getElementById(listId);
+        const labels = list.getElementsByTagName('label');
+        for (let i = 0; i < labels.length; i++) {
+            const text = labels[i].textContent || labels[i].innerText;
+            if (text.toLowerCase().indexOf(filter) > -1) {
+                labels[i].style.display = "";
+            } else {
+                labels[i].style.display = "none";
+            }
+        }
+    }
+
+    function openEditModal(type, id, content) {
+        const form = document.getElementById('editForm');
+        const actionType = document.getElementById('edit_action_type');
+        const contentArea = document.getElementById('edit_content_area');
+
+        if (type === 'ticket') {
+            form.action = "{{ url_for('main.ticket_detail', ticket_id=ticket.id) }}";
+            actionType.value = "edit_ticket_content";
+            contentArea.name = "description";
+        } else if (type === 'reply') {
+            form.action = "/edit_reply/" + id;
+            actionType.value = ""; // not needed for reply edit route
+            contentArea.name = "content";
+        }
+
+        contentArea.value = content;
+        document.getElementById('editContentModal').style.display = 'block';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    window.onclick = function (event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+
+    // Auto-refresh replies every 15 seconds
+    setInterval(function() {
+        $.ajax({
+            url: "{{ url_for('main.get_ticket_replies', ticket_id=ticket.id) }}",
+            type: "GET",
+            success: function(data) {
+                const container = document.getElementById('replies-container');
+                // Only update if content actually changed to avoid unnecessary DOM repaints
+                if (container.innerHTML !== data) {
+                    container.innerHTML = data;
+                    const replyCount = (data.match(/class="reply-card/g) || []).length;
+                    document.getElementById('replies-count').innerText = replyCount;
+                }
+            }
+        });
+    }, 15000);
+</script>
+{% endblock %}

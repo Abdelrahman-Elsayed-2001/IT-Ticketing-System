@@ -1,0 +1,827 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>{{ t('Settings') }}</h1>
+</div>
+
+<div class="tabs mb-4">
+    <button class="tab-btn active" onclick="showTab('users')">{{ t('Users') }}</button>
+    <button class="tab-btn" onclick="showTab('categories')">{{ t('Categories') }}</button>
+    <button class="tab-btn" onclick="showTab('catorder')">{{ t('Category Order') }}</button>
+    <button class="tab-btn" onclick="showTab('statuses')">{{ t('Statuses') }}</button>
+    <button class="tab-btn" onclick="showTab('groups')">{{ t('User Groups') }}</button>
+    <button class="tab-btn" onclick="showTab('backups')">{{ t('Backup Settings') }}</button>
+    <button class="tab-btn" onclick="showTab('email')">{{ t('Email Settings') }}</button>
+    <button class="tab-btn" onclick="showTab('popup')">{{ t('Popup Settings') }}</button>
+    <button class="tab-btn" onclick="showTab('itorder')">{{ t('IT Contact Order') }}</button>
+</div>
+
+<style>
+    .searchable-checkbox-list {
+        max-height: 250px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 10px;
+        background: #fff;
+    }
+
+    .dark-theme .searchable-checkbox-list {
+        background: #2a2a2a;
+    }
+
+    .searchable-checkbox-list label {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
+    .searchable-checkbox-list label input {
+        margin-right: 10px;
+        width: 16px;
+        height: 16px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 8px 12px;
+        margin-bottom: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+    }
+</style>
+
+<!-- Email Tab -->
+<div id="email-tab" class="tab-content" style="display: none;">
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <h2 class="mb-4">{{ t('Email Settings') }}</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="update_email_settings">
+            <div class="form-group">
+                <label>SMTP Host</label>
+                <input type="text" name="email_smtp_host" class="form-control" value="{{ email_smtp_host }}">
+            </div>
+            <div class="form-group">
+                <label>SMTP Port</label>
+                <input type="text" name="email_smtp_port" class="form-control" value="{{ email_smtp_port }}">
+            </div>
+            <div class="form-group">
+                <label>SMTP Username / Email</label>
+                <input type="text" name="email_smtp_user" class="form-control" value="{{ email_smtp_user }}">
+            </div>
+            <div class="form-group">
+                <label>SMTP Password</label>
+                <input type="password" name="email_smtp_pass" class="form-control" value="{{ email_smtp_pass }}">
+            </div>
+            <div class="form-group">
+                <label>Sender Name</label>
+                <input type="text" name="email_sender_name" class="form-control" value="{{ email_sender_name }}">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">{{ t('Save Changes') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- Popup Tab -->
+<div id="popup-tab" class="tab-content" style="display: none;">
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <h2 class="mb-4">{{ t('Popup Settings') }}</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="update_popup_settings">
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" name="dashboard_popup_enabled" id="dashboard_popup_enabled" {% if dashboard_popup_enabled == 'true' %}checked{% endif %} style="width: auto;">
+                <label for="dashboard_popup_enabled" style="margin: 0;">{{ t('Enable Dashboard Popup') }}</label>
+            </div>
+            <div class="form-group">
+                <label>{{ t('Arabic Message') }}</label>
+                <textarea name="dashboard_popup_message_ar" class="form-control" rows="4">{{ dashboard_popup_message_ar }}</textarea>
+            </div>
+            <div class="form-group">
+                <label>{{ t('English Message') }}</label>
+                <textarea name="dashboard_popup_message_en" class="form-control" rows="4">{{ dashboard_popup_message_en }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">{{ t('Save Changes') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- IT Order Tab -->
+<div id="itorder-tab" class="tab-content" style="display: none;">
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <h2 class="mb-4">{{ t('IT Contact Order') }}</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="update_it_order">
+            <div class="table-responsive">
+                <table class="simple-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>{{ t('Display Name') }}</th>
+                            <th>{{ t('Username') }}</th>
+                            <th style="width: 100px;">{{ t('Order') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in it_users %}
+                        <tr>
+                            <td>{{ u.display_name }}</td>
+                            <td>{{ u.username }}</td>
+                            <td>
+                                <input type="hidden" name="user_ids" value="{{ u.id }}">
+                                <input type="number" name="contact_orders" class="form-control" value="{{ u.contact_order }}" style="text-align: center;">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-3">{{ t('Update Order') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- Category Order Tab -->
+<div id="catorder-tab" class="tab-content" style="display: none;">
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+        <h2 class="mb-4">{{ t('Category Order') }}</h2>
+        
+        <form method="POST" action="{{ url_for('main.settings') }}" class="mb-5">
+            <input type="hidden" name="action" value="update_category_order_mode">
+            <div class="form-group">
+                <label>{{ t('Sorting Mode') }}</label>
+                <div style="display: flex; gap: 20px; align-items: center; margin-top: 10px;">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="radio" name="category_sort_mode" value="created" {% if category_sort_mode == 'created' %}checked{% endif %}>
+                        {{ t('Default (By Creation)') }}
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="radio" name="category_sort_mode" value="demand" {% if category_sort_mode == 'demand' %}checked{% endif %}>
+                        {{ t('By Demand (Most Used)') }}
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="radio" name="category_sort_mode" value="manual" {% if category_sort_mode == 'manual' %}checked{% endif %}>
+                        {{ t('Manual') }}
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">{{ t('Save Sorting Mode') }}</button>
+        </form>
+
+        <hr style="margin: 30px 0; border-color: var(--border-color);">
+
+        <form method="POST" action="{{ url_for('main.settings') }}" id="cat-order-form">
+            <input type="hidden" name="action" value="update_category_order">
+            <div class="table-responsive">
+                <table class="simple-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>{{ t('Category') }}</th>
+                            <th style="width: 120px; text-align: center;">{{ t('Manual Order') }}</th>
+                            <th style="width: 120px; text-align: center;">{{ t('Pin to Top (Max 3)') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in categories %}
+                        <tr>
+                            <td>{{ cat.localized_name }}</td>
+                            <td>
+                                <input type="hidden" name="category_ids" value="{{ cat.id }}">
+                                <input type="number" name="manual_orders" class="form-control" value="{{ cat.manual_order }}" style="text-align: center;">
+                            </td>
+                            <td style="text-align: center;">
+                                <input type="checkbox" name="pinned_ids" value="{{ cat.id }}" class="pin-checkbox" {% if cat.is_pinned %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-3">{{ t('Save Order & Pins') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- Backups Tab -->
+<div id="backups-tab" class="tab-content" style="display: none;">
+    <div class="card">
+        <h2 class="mb-4">{{ t('Backup Settings') }}</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="update_backup_settings">
+
+            <div class="form-group">
+                <label>{{ t('Backup Path') }}</label>
+                <input type="text" name="backup_path" class="form-control" value="{{ backup_path }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>{{ t('Weekly Full Backup Day') }}</label>
+                <select name="weekly_backup_day" class="form-control" required>
+                    <option value="sun" {% if weekly_day=='sun' %}selected{% endif %}>Sunday</option>
+                    <option value="mon" {% if weekly_day=='mon' %}selected{% endif %}>Monday</option>
+                    <option value="tue" {% if weekly_day=='tue' %}selected{% endif %}>Tuesday</option>
+                    <option value="wed" {% if weekly_day=='wed' %}selected{% endif %}>Wednesday</option>
+                    <option value="thu" {% if weekly_day=='thu' %}selected{% endif %}>Thursday</option>
+                    <option value="fri" {% if weekly_day=='fri' %}selected{% endif %}>Friday</option>
+                    <option value="sat" {% if weekly_day=='sat' %}selected{% endif %}>Saturday</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>{{ t('Weekly Full Backup Time') }} (HH:MM)</label>
+                <input type="time" name="weekly_backup_time" class="form-control" value="{{ weekly_time }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>{{ t('Daily Cumulative Backup Time') }} (HH:MM)</label>
+                <input type="time" name="daily_backup_time" class="form-control" value="{{ daily_time }}" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">{{ t('Save Changes') }}</button>
+        </form>
+
+        <hr style="margin: 1.5rem 0; border-top: 1px solid var(--border-color);">
+
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="manual_backup">
+            <button type="submit" class="btn btn-secondary w-100">{{ t('Backup Now') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- Users Tab -->
+<div id="users-tab" class="tab-content">
+    <div class="settings-grid">
+        <div class="settings-left">
+            <div class="card">
+                <h2 class="mb-4">Add User</h2>
+                <form method="POST" action="{{ url_for('main.settings') }}">
+                    <input type="hidden" name="action" value="add_user">
+                    <div class="form-group">
+                        <label>{{ t('Username') }}</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('Password') }}</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('Display Name') }}</label>
+                        <input type="text" name="display_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('Arabic Display Name') }}</label>
+                        <input type="text" name="arabic_display_name" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="text" name="mobile_number" class="form-control" pattern="^(05\d{8}|2001)$" maxlength="10"
+                            title="Must be 10 digits starting with 05 (or 2001)">
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('Avaya Extension') }}</label>
+                        <input type="text" name="avaya_extension" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('Department') }}</label>
+                        <input type="text" name="department" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('Role') }}</label>
+                        <select name="role" class="form-control">
+                            <option value="Staff">{{ t('Staff') }}</option>
+                            <option value="IT">{{ t('IT') }}</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">{{ t('Add') }} User</button>
+                </form>
+            </div>
+        </div>
+        <div class="settings-right">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;" class="mb-4">
+                    <h2 style="margin:0;">{{ t('Users') }}</h2>
+                    <a href="{{ url_for('main.export_csv', export_type='users') }}" class="btn btn-secondary btn-sm">{{ t('Export to CSV') }}</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="simple-table">
+                        <thead>
+                            <tr>
+                                <th>{{ t('Username') }}</th>
+                                <th>{{ t('Display Name') }}</th>
+                                <th>{{ t('Role') }}</th>
+                                <th>{{ t('Status') }}</th>
+                                <th>{{ t('Action') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td>{{ u.username }}</td>
+                                <td>{{ u.display_name }}</td>
+                                <td><span
+                                        class="badge {% if u.role == 'IT' %}badge-it{% else %}badge-staff{% endif %}">{{
+                                        t(u.role) }}</span></td>
+                                <td>
+                                    {% if u.is_active %}
+                                    <span style="color: var(--success-color);">Active</span>
+                                    {% else %}
+                                    <span style="color: var(--danger-color);">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div style="display:flex; gap:0.5rem;">
+                                        <button class="btn btn-sm btn-secondary"
+                                            onclick="openEditUserModal({{ u.id }}, '{{ u.display_name }}', '{{ u.arabic_display_name or '' }}', '{{ u.email or '' }}', '{{ u.mobile_number or '' }}', '{{ u.department or '' }}', '{{ u.avaya_extension or '' }}')">{{
+                                            t('Edit') }}</button>
+                                        {% if u.username != 'admin' %}
+                                        <form method="POST" action="{{ url_for('main.settings') }}"
+                                            style="display:inline;">
+                                            <input type="hidden" name="action" value="toggle_user">
+                                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                                            <button type="submit"
+                                                class="btn btn-sm {% if u.is_active %}btn-danger{% else %}btn-primary{% endif %}">
+                                                {{ 'Deactivate' if u.is_active else 'Activate' }}
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Categories Tab -->
+<div id="categories-tab" class="tab-content" style="display: none;">
+    <!-- ... Similar translations for Categories ... -->
+    <div class="settings-grid">
+        <div class="settings-left">
+            <div class="card">
+                <h2 class="mb-4">Add Category</h2>
+                <form method="POST" action="{{ url_for('main.settings') }}">
+                    <input type="hidden" name="action" value="add_category">
+                    <div class="form-group">
+                        <label>Arabic Name</label>
+                        <input type="text" name="arabic_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>English Name</label>
+                        <input type="text" name="english_name" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Add Category</button>
+                </form>
+            </div>
+        </div>
+        <div class="settings-right">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;" class="mb-4">
+                    <h2 style="margin:0;">{{ t('Categories') }}</h2>
+                    <a href="{{ url_for('main.export_csv', export_type='categories') }}" class="btn btn-secondary btn-sm">{{ t('Export to CSV') }}</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="simple-table">
+                        <thead>
+                            <tr>
+                                <th>Name (Ar / En)</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in categories %}
+                            <tr>
+                                <td>{{ c.arabic_name }} / {{ c.english_name }}</td>
+                                <td>{{ 'Active' if c.is_active else 'Inactive' }}</td>
+                                <td>
+                                    <div style="display:flex; gap:0.5rem;">
+                                        <button type="button" class="btn btn-sm btn-secondary" onclick="openEditCategoryModal({{ c.id }}, '{{ c.arabic_name }}', '{{ c.english_name }}')">{{ t('Edit') }}</button>
+                                        <form method="POST" action="{{ url_for('main.settings') }}" style="display:inline;">
+                                            <input type="hidden" name="action" value="toggle_category">
+                                            <input type="hidden" name="category_id" value="{{ c.id }}">
+                                            <button type="submit" class="btn btn-sm {% if c.is_active %}btn-danger{% else %}btn-primary{% endif %}">
+                                                {{ 'Deactivate' if c.is_active else 'Activate' }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statuses Tab -->
+<div id="statuses-tab" class="tab-content" style="display: none;">
+    <div class="settings-grid">
+        <div class="settings-left">
+            <div class="card">
+                <h2 class="mb-4">Add Status</h2>
+                <form method="POST" action="{{ url_for('main.settings') }}">
+                    <input type="hidden" name="action" value="add_status">
+                    <div class="form-group">
+                        <label>Arabic Name</label>
+                        <input type="text" name="arabic_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>English Name</label>
+                        <input type="text" name="english_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Color (Hex)</label>
+                        <div style="display:flex; gap:10px; margin-bottom:10px;">
+                            <div style="background-color:#007bff; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#007bff'" title="Blue"></div>
+                            <div style="background-color:#28a745; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#28a745'" title="Green"></div>
+                            <div style="background-color:#41e94f; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#41e94f'" title="Cyan"></div>
+                            <div style="background-color:#dc3545; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#dc3545'" title="Red"></div>
+                            <div style="background-color:#ffc107; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#ffc107'" title="Yellow"></div>
+                            <div style="background-color:#4cc8db; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#4cc8db'" title="Cyan"></div>
+                            <div style="background-color:#c517e7; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#c517e7'" title="Cyan"></div>
+                            <div style="background-color:#e7bee0; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#e7bee0'" title="Cyan"></div>
+                            <div style="background-color:#6c757d; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#6c757d'" title="Grey"></div>
+                            <div style="background-color:#343a40; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                                onclick="this.parentElement.nextElementSibling.value='#343a40'" title="Dark"></div>
+                        </div>
+                        <input type="color" name="color" class="form-control" value="#6c757d" required
+                            style="height: 40px;">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="is_closed"> {{ t('Is Closed State?') }}
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Add Status</button>
+                </form>
+            </div>
+        </div>
+        <div class="settings-right">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;" class="mb-4">
+                    <h2 style="margin:0;">{{ t('Statuses') }}</h2>
+                    <a href="{{ url_for('main.export_csv', export_type='statuses') }}" class="btn btn-secondary btn-sm">{{ t('Export to CSV') }}</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="simple-table">
+                        <thead>
+                            <tr>
+                                <th>Name (Ar / En)</th>
+                                <th>Color</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in statuses %}
+                            <tr>
+                                <td>{{ s.arabic_name }} / {{ s.english_name }}</td>
+                                <td><span
+                                        style="display:inline-block; width:20px; height:20px; background-color:{{s.color}}; border-radius:4px; vertical-align:middle;"></span>
+                                    {{ s.color }}</td>
+                                <td>{{ 'Active' if s.is_active else 'Inactive' }}</td>
+                                <td>
+                                    <div style="display:flex; gap:0.5rem;">
+                                        <button class="btn btn-sm btn-secondary"
+                                            onclick="openEditStatusModal({{ s.id }}, '{{ s.arabic_name }}', '{{ s.english_name }}', '{{ s.color }}', '{{ s.is_closed }}')">{{
+                                            t('Edit') }}</button>
+                                        <form method="POST" action="{{ url_for('main.settings') }}"
+                                            style="display:inline;">
+                                            <input type="hidden" name="action" value="toggle_status">
+                                            <input type="hidden" name="status_id" value="{{ s.id }}">
+                                            <button type="submit"
+                                                class="btn btn-sm {% if s.is_active %}btn-danger{% else %}btn-primary{% endif %}">
+                                                {{ 'Deactivate' if s.is_active else 'Activate' }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Groups Tab -->
+<div id="groups-tab" class="tab-content" style="display: none;">
+    <div class="settings-grid">
+        <div class="settings-left">
+            <div class="card mb-4">
+                <h2 class="mb-4">{{ t('Create Group') }}</h2>
+                <form method="POST" action="{{ url_for('main.settings') }}">
+                    <input type="hidden" name="action" value="create_group">
+                    <div class="form-group">
+                        <label>{{ t('Group Name') }}</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>{{ t('Description') }}</label>
+                        <input type="text" name="description" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">{{ t('Create Group') }}</button>
+                </form>
+            </div>
+        </div>
+        <div class="settings-right">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;" class="mb-4">
+                    <h2 style="margin:0;">{{ t('User Groups') }}</h2>
+                    <a href="{{ url_for('main.export_csv', export_type='groups') }}" class="btn btn-secondary btn-sm">{{ t('Export to CSV') }}</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="simple-table">
+                        <thead>
+                            <tr>
+                                <th>{{ t('Group Name') }}</th>
+                                <th>{{ t('Description') }}</th>
+                                <th>{{ t('Status') }}</th>
+                                <th>{{ t('Action') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in groups %}
+                            <tr>
+                                <td>{{ g.name }}</td>
+                                <td>{{ g.description or '' }}</td>
+                                <td>{{ 'Active' if g.is_active else 'Inactive' }}</td>
+                                <td>
+                                    <div style="display:flex; gap:0.5rem;">
+                                        <button class="btn btn-sm btn-secondary"
+                                            onclick="openEditGroupModal({{ g.id }}, '{{ g.name }}', {{ g.users | map(attribute='id') | list | tojson }})">{{
+                                            t('Members') }}</button>
+                                        <form method="POST" action="{{ url_for('main.settings') }}"
+                                            style="display:inline;">
+                                            <input type="hidden" name="action" value="toggle_group">
+                                            <input type="hidden" name="group_id" value="{{ g.id }}">
+                                            <button type="submit"
+                                                class="btn btn-sm {% if g.is_active %}btn-danger{% else %}btn-primary{% endif %}">
+                                                {{ 'Deactivate' if g.is_active else 'Activate' }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div id="editCategoryModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-btn" onclick="closeModal('editCategoryModal')">&times;</span>
+        <h2 class="mb-4">Edit Category</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="edit_category">
+            <input type="hidden" name="category_id" id="edit_cat_id">
+            
+            <div class="form-group">
+                <label>Arabic Name</label>
+                <input type="text" name="arabic_name" id="edit_cat_arabic" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>English Name</label>
+                <input type="text" name="english_name" id="edit_cat_english" class="form-control" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100">Update Category</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('editUserModal')">&times;</span>
+        <h2 class="mb-4">{{ t('Edit') }} {{ t('User') }}</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="edit_user">
+            <input type="hidden" name="user_id" id="edit_user_id">
+            <div class="form-group">
+                <label>{{ t('Display Name') }}</label>
+                <input type="text" name="display_name" id="edit_display_name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>{{ t('Arabic Display Name') }}</label>
+                <input type="text" name="arabic_display_name" id="edit_arabic_display_name" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" id="edit_email" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Mobile Number</label>
+                <input type="text" name="mobile_number" id="edit_mobile" class="form-control" pattern="^(05\d{8}|2001)$"
+                    maxlength="10" title="Must be 10 digits starting with 05 (or 2001)">
+            </div>
+            <div class="form-group">
+                <label>{{ t('Avaya Extension') }}</label>
+                <input type="text" name="avaya_extension" id="edit_avaya" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>{{ t('Department') }}</label>
+                <input type="text" name="department" id="edit_department" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>{{ t('Password') }} (leave blank to keep current)</label>
+                <input type="password" name="password" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">{{ t('Update') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Status Modal -->
+<div id="editStatusModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('editStatusModal')">&times;</span>
+        <h2 class="mb-4">{{ t('Edit') }} {{ t('Status') }}</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="edit_status">
+            <input type="hidden" name="status_id" id="edit_status_id">
+            <div class="form-group">
+                <label>Arabic Name</label>
+                <input type="text" name="arabic_name" id="edit_status_arabic_name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>English Name</label>
+                <input type="text" name="english_name" id="edit_status_english_name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>{{ t('Color') }}</label>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div style="background-color:#007bff; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                        onclick="document.getElementById('edit_status_color').value='#007bff'" title="Blue"></div>
+                    <div style="background-color:#28a745; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                        onclick="document.getElementById('edit_status_color').value='#28a745'" title="Green"></div>
+                    <div style="background-color:#dc3545; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                        onclick="document.getElementById('edit_status_color').value='#dc3545'" title="Red"></div>
+                    <div style="background-color:#ffc107; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                        onclick="document.getElementById('edit_status_color').value='#ffc107'" title="Yellow"></div>
+                    <div style="background-color:#17a2b8; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                        onclick="document.getElementById('edit_status_color').value='#17a2b8'" title="Cyan"></div>
+                    <div style="background-color:#6c757d; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                        onclick="document.getElementById('edit_status_color').value='#6c757d'" title="Grey"></div>
+                    <div style="background-color:#343a40; width:24px; height:24px; border-radius:50%; cursor:pointer; border:1px solid #ddd;"
+                        onclick="document.getElementById('edit_status_color').value='#343a40'" title="Dark"></div>
+                </div>
+                <input type="color" name="color" id="edit_status_color" class="form-control" required
+                    style="height:40px;">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_closed" id="edit_status_is_closed"> {{ t('Is Closed State?') }}
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">{{ t('Update') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Group Members Modal -->
+<div id="editGroupModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('editGroupModal')">&times;</span>
+        <h2 class="mb-4">{{ t('Members') }}</h2>
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="action" value="update_group_members">
+            <input type="hidden" name="group_id" id="edit_group_id">
+            <div class="form-group">
+                <label>{{ t('Members') }}</label>
+                <input type="text" class="search-input" placeholder="Search members by name or username..."
+                    onkeyup="filterCheckboxes(this, 'edit_group_members_list')">
+                <div class="searchable-checkbox-list" id="edit_group_members_list">
+                    {% for u in users %}
+                    {% if u.role == 'Staff' %}
+                    <label>
+                        <input type="checkbox" name="members" value="{{ u.id }}" class="group-member-cb">
+                        {{ u.display_name }} <span class="text-muted ml-1" style="font-size:0.8rem;">(@{{ u.username
+                            }})</span>
+                    </label>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">{{ t('Update') }}</button>
+        </form>
+    </div>
+</div>
+
+<!-- JS -->
+<script>
+
+    function showTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+        document.getElementById(tabName + '-tab').style.display = 'block';
+        event.currentTarget.classList.add('active');
+    }
+
+    function openEditUserModal(id, display, arabic, email, mobile, dept, avaya) {
+        document.getElementById('edit_user_id').value = id;
+        document.getElementById('edit_display_name').value = display;
+        document.getElementById('edit_arabic_display_name').value = arabic;
+        document.getElementById('edit_email').value = email;
+        document.getElementById('edit_mobile').value = mobile;
+        document.getElementById('edit_department').value = dept;
+        document.getElementById('edit_avaya').value = avaya;
+        document.getElementById('editUserModal').style.display = 'block';
+    }
+
+    function openEditCategoryModal(id, arabic, english) {
+        document.getElementById('edit_cat_id').value = id;
+        document.getElementById('edit_cat_arabic').value = arabic;
+        document.getElementById('edit_cat_english').value = english;
+        document.getElementById('editCategoryModal').style.display = 'block';
+    }
+
+    function openEditStatusModal(id, arabic, english, color, isClosed) {
+        document.getElementById('edit_status_id').value = id;
+        document.getElementById('edit_status_arabic_name').value = arabic;
+        document.getElementById('edit_status_english_name').value = english;
+        document.getElementById('edit_status_color').value = color;
+        document.getElementById('edit_status_is_closed').checked = isClosed === 'True';
+        document.getElementById('editStatusModal').style.display = 'block';
+    }
+
+    function filterCheckboxes(input, listId) {
+        const filter = input.value.toLowerCase();
+        const list = document.getElementById(listId);
+        const labels = list.getElementsByTagName('label');
+        for (let i = 0; i < labels.length; i++) {
+            const text = labels[i].textContent || labels[i].innerText;
+            if (text.toLowerCase().indexOf(filter) > -1) {
+                labels[i].style.display = "";
+            } else {
+                labels[i].style.display = "none";
+            }
+        }
+    }
+
+    function openEditGroupModal(id, name, members) {
+        document.getElementById('edit_group_id').value = id;
+
+        document.querySelectorAll('.group-member-cb').forEach(cb => cb.checked = false);
+        members.forEach(memberId => {
+            let cb = document.querySelector(`.group-member-cb[value="${memberId}"]`);
+            if (cb) cb.checked = true;
+        });
+
+        document.getElementById('editGroupModal').style.display = 'block';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // Close modal if clicked outside
+    window.onclick = function (event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const pinCheckboxes = document.querySelectorAll('.pin-checkbox');
+        pinCheckboxes.forEach(box => {
+            box.addEventListener('change', function() {
+                const checkedCount = document.querySelectorAll('.pin-checkbox:checked').length;
+                if (checkedCount > 3) {
+                    this.checked = false;
+                    alert("{{ t('You can only pin up to 3 categories.') }}");
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
