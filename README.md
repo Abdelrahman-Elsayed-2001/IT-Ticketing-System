@@ -1,6 +1,7 @@
 🎫 IT Ticketing System
 Project Description: A comprehensive web application built with Flask (Python), designed to manage and track IT support tickets within an organization. It provides a structured environment for employees to report technical issues and for the IT team to efficiently track, update, and resolve them.
 
+
 ✨ Key Features:
 
 User & Role Management: Secure login system with distinct user roles (System Admin, IT Support Team, and Regular Users).
@@ -18,11 +19,18 @@ Notifications & Messaging: Dashboard pop-ups and messaging system to communicate
 🛠️ Tech Stack:
 
 Backend: Python 3, Flask
+
 Database: SQLite (using Flask-SQLAlchemy)
+
 Authentication & Security: Flask-Login, Flask-Bcrypt
+
 Task Scheduling: APScheduler
+
 Frontend: HTML, CSS, JavaScript (Jinja2 templating engine)
 
+
 Initial login credentials are:
+
 username: admin
+
 password: admin123
