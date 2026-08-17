@@ -3,12 +3,13 @@ Project Description: A comprehensive web application built with Flask (Python), 
 
 ✨ Key Features:
 
-User & Role Management: Secure login system with distinct user roles (System Admin, IT Support Team, and Regular Users).
-Bilingual Support: Seamlessly toggle between English and Arabic user interfaces.
-Ticket Management: Create, categorize, and track the status of tickets (Open, In Progress, Closed).
-File Attachments: Users can upload files and images with their tickets to better explain their issues.
-Automated Backups: Scheduled automated database backups (daily and weekly) using APScheduler to prevent data loss.
-Notifications & Messaging: Dashboard pop-ups and messaging system to communicate updates and announcements to users.
+#User & Role Management: Secure login system with distinct user roles (System Admin, IT Support Team, and Regular Users).
+#Bilingual Support: Seamlessly toggle between English and Arabic user interfaces.
+#Ticket Management: Create, categorize, and track the status of tickets (Open, In Progress, Closed).
+#File Attachments: Users can upload files and images with their tickets to better explain their issues.
+#Automated Backups: Scheduled automated database backups (daily and weekly) using APScheduler to prevent data loss.
+#Notifications & Messaging: Dashboard pop-ups and messaging system to communicate updates and announcements to users.
+
 🛠️ Tech Stack:
 
 Backend: Python 3, Flask
